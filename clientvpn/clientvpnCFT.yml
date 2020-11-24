@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  SAMLProviderArn:
+    Type: String
+  ClientvpnCidrBlock:
+    Type: String
+  DestinationCidrBlock:
+    Type: String
+  TargetVpcSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+  NetworkAssociationSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+  TargetVpcSubnetId2:
+    Type: 'AWS::EC2::Subnet::Id'
+  NetworkAssociationSubnetId2:
+    Type: 'AWS::EC2::Subnet::Id'
+  ServerCertificateArn:
+    Type: String
+  CloudwatchLogGroup: 
+    Type: String
+  CloudwatchLogStream:
+    Type: String 
+  SecurityGroupIds:
+    Type: String
+  TransportProtocol:
+    Type: String
+  VPCID:
+    Type: 'AWS::EC2::VPC::Id'
+  VpnPort:
+    Type: String
+    Default: '443'
+  TargetNetworkCidr1:
+    Type: String
+  TargetNetworkCidr2:
+    Type: String 
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Ref CloudwatchLogGroup
+      RetentionInDays: 365
+  LogStream:
+    Type: AWS::Logs::LogStream
+    Properties: 
+      LogGroupName: !Ref LogGroup
+      LogStreamName: !Ref CloudwatchLogStream
+  ClientVpnEndpoint:
+    Type: 'AWS::EC2::ClientVpnEndpoint'
+    Properties:
+      AuthenticationOptions:
+        - Type: federated-authentication
+          FederatedAuthentication: 
+            SAMLProviderArn: !Ref SAMLProviderArn
+      ClientCidrBlock: !Ref ClientvpnCidrBlock
+      SplitTunnel: True
+      ConnectionLogOptions:
+        Enabled: True
+        CloudwatchLogGroup: !Ref LogGroup
+        CloudwatchLogStream: !Ref LogStream
+      Description: Client VPN Endpoint
+      ServerCertificateArn: !Ref ServerCertificateArn
+      SecurityGroupIds: 
+        - !Ref SecurityGroupIds
+      TagSpecifications:
+        - ResourceType: client-vpn-endpoint
+          Tags:
+            - Key: env
+              Value: dev
+      TransportProtocol: !Ref TransportProtocol
+      VpcId: !Ref VPCID
+      VpnPort: !Ref VpnPort
+  VPNNetworkAssociation:
+    Type: 'AWS::EC2::ClientVpnTargetNetworkAssociation'
+    Properties:
+      ClientVpnEndpointId: !Ref ClientVpnEndpoint
+      SubnetId: !Ref NetworkAssociationSubnetId
+  VPNRoute:
+    Type: 'AWS::EC2::ClientVpnRoute'
+    Properties:
+      ClientVpnEndpointId: !Ref ClientVpnEndpoint
+      TargetVpcSubnetId: !Ref TargetVpcSubnetId
+      DestinationCidrBlock: !Ref DestinationCidrBlock
+      Description: VPN Route
+    DependsOn: VPNNetworkAssociation
+  VPNNetworkAssociation2:
+    Type: 'AWS::EC2::ClientVpnTargetNetworkAssociation'
+    Properties:
+      ClientVpnEndpointId: !Ref ClientVpnEndpoint
+      SubnetId: !Ref NetworkAssociationSubnetId2
+  VPNRoute2:
+    Type: 'AWS::EC2::ClientVpnRoute'
+    Properties:
+      ClientVpnEndpointId: !Ref ClientVpnEndpoint
+      TargetVpcSubnetId: !Ref TargetVpcSubnetId2
+      DestinationCidrBlock: !Ref DestinationCidrBlock
+      Description: VPN Route
+    DependsOn: VPNNetworkAssociation2    
+  SharedresourceAuthRule:
+    Type: "AWS::EC2::ClientVpnAuthorizationRule"
+    Properties:
+      ClientVpnEndpointId: 
+        !Ref ClientVpnEndpoint
+      AuthorizeAllGroups: true
+      TargetNetworkCidr: !Ref TargetNetworkCidr1
+      Description: "Sharedresource2AuthRule"
+  ClientvpcAuthRule:
+    Type: "AWS::EC2::ClientVpnAuthorizationRule"
+    Properties:
+      ClientVpnEndpointId: 
+        !Ref ClientVpnEndpoint
+      AuthorizeAllGroups: true
+      TargetNetworkCidr: !Ref TargetNetworkCidr2
+      Description: "ClientvpcAuthRule"  
